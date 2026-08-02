@@ -14,7 +14,6 @@ class UserOut(BaseModel):
     email: str
     display_name: str
     avatar_url: str | None = None
-    google_id: str
+    google_id: str | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = {'from_attributes': True}

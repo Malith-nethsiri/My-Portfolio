@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.models import Image, Portfolio, Section, User
@@ -18,7 +19,7 @@ router = APIRouter()
 
 
 async def get_or_create_portfolio(session: AsyncSession, user: User) -> Portfolio:
-    result = await session.execute(select(Portfolio).where(Portfolio.user_id == user.id))
+    result = await session.execute(select(Portfolio).where(Portfolio.user_id == user.id).options(selectinload(Portfolio.sections)))
     portfolio = result.scalar_one_or_none()
     if portfolio is not None:
         return portfolio

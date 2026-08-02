@@ -27,6 +27,6 @@ class Project(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    portfolio: Mapped['Portfolio'] = relationship(back_populates='projects')
-    user: Mapped['User'] = relationship(back_populates='projects')
-    cover_image: Mapped['Image | None'] = relationship()
+    portfolio: Mapped['Portfolio'] = relationship(back_populates='projects', lazy="selectin")
+    user: Mapped['User'] = relationship(back_populates='projects', lazy="selectin")
+    cover_image: Mapped['Image | None'] = relationship(lazy="selectin")

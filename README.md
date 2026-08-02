@@ -44,6 +44,31 @@ A full-stack portfolio platform backend with PostgreSQL and a minimal React API 
    - GOOGLE_CLIENT_ID=...
    - GOOGLE_CLIENT_SECRET=...
 
+## Email/password authentication flow
+
+The backend now supports both Google OAuth and local email/password auth.
+
+### Sign up
+
+- POST http://localhost:8000/api/signup
+- Body: {"email": "user@example.com", "password": "Secure123"}
+- Passwords must be at least 8 characters, include at least one letter and one digit.
+- The API returns 201 and creates a user with `email_verified=true`.
+
+### Login
+
+- POST http://localhost:8000/api/login
+- Body: {"email": "user@example.com", "password": "Secure123"}
+- Response includes a JWT bearer token.
+
+### Protected account actions
+
+- POST /api/change-password
+- PUT /api/change-email
+- DELETE /api/account
+
+The frontend test harness exposes these forms on the landing page and dashboard.
+
 ## Frontend test harness setup
 
 1. From the project root:
@@ -52,8 +77,9 @@ A full-stack portfolio platform backend with PostgreSQL and a minimal React API 
 2. Start Vite:
    - npm run dev
 3. Open the local URL shown by Vite.
-4. Click Sign Up with Google and complete the OAuth flow.
-5. Use the dashboard to exercise each API endpoint manually.
+4. Use the landing page to sign up/login with email/password or click Sign Up with Google.
+5. Once authenticated, visit /dashboard to update the password, change the email, and delete the account.
+6. Use the dashboard to exercise each API endpoint manually.
 
 ## Seed data
 

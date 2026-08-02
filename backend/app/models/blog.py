@@ -22,4 +22,4 @@ class BlogPost(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    user: Mapped['User'] = relationship(back_populates='posts')
+    user: Mapped['User'] = relationship(back_populates='posts', lazy="selectin")

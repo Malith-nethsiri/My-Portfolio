@@ -24,4 +24,4 @@ class MoneyEntry(Base):
     date: Mapped[date] = mapped_column(Date, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
-    user: Mapped['User'] = relationship(back_populates='money_entries')
+    user: Mapped['User'] = relationship(back_populates='money_entries', lazy="selectin")

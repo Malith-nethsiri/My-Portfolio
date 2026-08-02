@@ -22,9 +22,9 @@ class Portfolio(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    user: Mapped['User'] = relationship(back_populates='portfolio')
-    sections: Mapped[list['Section']] = relationship(back_populates='portfolio', cascade='all, delete-orphan')
-    projects: Mapped[list['Project']] = relationship(back_populates='portfolio', cascade='all, delete-orphan')
+    user: Mapped['User'] = relationship(back_populates='portfolio', lazy="selectin")
+    sections: Mapped[list['Section']] = relationship(back_populates='portfolio', cascade='all, delete-orphan', lazy="selectin")
+    projects: Mapped[list['Project']] = relationship(back_populates='portfolio', cascade='all, delete-orphan', lazy="selectin")
 
 
 class Section(Base):
@@ -36,7 +36,7 @@ class Section(Base):
     visible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     order_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    portfolio: Mapped['Portfolio'] = relationship(back_populates='sections')
+    portfolio: Mapped['Portfolio'] = relationship(back_populates='sections', lazy="selectin")
 
 
 class Image(Base):
@@ -51,4 +51,4 @@ class Image(Base):
     order_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 
-    user: Mapped['User'] = relationship(back_populates='images')
+    user: Mapped['User'] = relationship(back_populates='images', lazy="selectin")

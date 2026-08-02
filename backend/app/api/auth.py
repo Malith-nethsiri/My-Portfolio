@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import AsyncSessionLocal, get_db
 from app.models import User
-from app.utils.security import create_access_token, get_current_user
+from app.schemas.user import AccountDeleteResponse, AuthTokenResponse, EmailChangeRequest, PasswordChangeRequest, UserCreate, UserLogin
+from app.utils.security import create_access_token, get_current_user, get_password_hash, verify_password
 
 router = APIRouter()
 
@@ -70,7 +71,7 @@ async def google_callback(request: Request):
             existing_email_user = result_email.scalar_one_or_none()
             if existing_email_user is not None:
                 existing_email_user.google_id = google_id
-                existing_email_user.avatar_url = user_info.get('picture')
+                existing_email_user.avatar_url = existing_email_user.avatar_url or user_info.get('picture')
                 existing_email_user.display_name = user_info.get('name') or existing_email_user.display_name
                 user = existing_email_user
             else:
@@ -79,6 +80,8 @@ async def google_callback(request: Request):
                     email=email,
                     display_name=user_info.get('name') or email.split('@')[0],
                     avatar_url=user_info.get('picture'),
+                    email_verified=True,
+                    is_active=True,
                 )
                 session.add(user)
 
@@ -86,6 +89,8 @@ async def google_callback(request: Request):
             user.email = email
             user.display_name = user_info.get('name') or user.display_name
             user.avatar_url = user_info.get('picture') or user.avatar_url
+            user.email_verified = True
+            user.is_active = True
 
         await session.commit()
         await session.refresh(user)
@@ -104,8 +109,75 @@ async def google_callback(request: Request):
     }
 
 
+@router.post('/signup', status_code=status.HTTP_201_CREATED)
+async def signup(payload: UserCreate, session: AsyncSession = Depends(get_db)):
+    existing_user = await session.scalar(select(User).where(User.email == payload.email))
+    if existing_user is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Email already registered')
+
+    user = User(
+        email=payload.email,
+        display_name=payload.email.split('@')[0],
+        hashed_password=get_password_hash(payload.password),
+        email_verified=True,
+        is_active=True,
+    )
+    session.add(user)
+    await session.commit()
+    return {'message': 'Account created'}
+
+
+@router.post('/login', response_model=AuthTokenResponse)
+async def login(payload: UserLogin, session: AsyncSession = Depends(get_db)):
+    user = await session.scalar(select(User).where(User.email == payload.email))
+    if user is None or user.hashed_password is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid credentials')
+    if not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid credentials')
+
+    access_token = create_access_token(str(user.id))
+    return {'access_token': access_token, 'token_type': 'bearer'}
+
+
+@router.post('/change-password')
+async def change_password(
+    payload: PasswordChangeRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    if current_user.hashed_password is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Password account required')
+    if not verify_password(payload.old_password, current_user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid password')
+
+    current_user.hashed_password = get_password_hash(payload.new_password)
+    await session.commit()
+    return {'message': 'Password updated'}
+
+
+@router.put('/change-email')
+async def change_email(
+    payload: EmailChangeRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    if current_user.hashed_password is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Password account required')
+    if not verify_password(payload.password, current_user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Invalid password')
+
+    existing_user = await session.scalar(select(User).where(User.email == payload.new_email))
+    if existing_user is not None and str(existing_user.id) != str(current_user.id):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Email already in use')
+
+    current_user.email = payload.new_email
+    current_user.email_verified = True
+    await session.commit()
+    return {'message': 'Email updated', 'new_email': current_user.email}
+
+
 @router.get('/me')
-async def get_me(current_user: User = Depends(get_current_user)):
+async def get_me(current_user: User = Depends(get_current_user)) -> dict[str, str | None]:
     return {
         'id': str(current_user.id),
         'email': current_user.email,
@@ -116,7 +188,7 @@ async def get_me(current_user: User = Depends(get_current_user)):
     }
 
 
-@router.delete('/account')
+@router.delete('/account', response_model=AccountDeleteResponse)
 async def delete_account(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
@@ -135,4 +207,4 @@ async def delete_account(
 
     await session.delete(current_user)
     await session.commit()
-    return {'success': True, 'message': 'Account deleted'}
+    return {'message': 'Account deleted'}

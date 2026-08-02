@@ -100,6 +100,11 @@ function App() {
   const [moneyForm, setMoneyForm] = useState(emptyMoney)
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(false)
+  const [authTab, setAuthTab] = useState('signup')
+  const [signupForm, setSignupForm] = useState({ email: '', password: '', confirmPassword: '' })
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' })
+  const [passwordForm, setPasswordForm] = useState({ old_password: '', new_password: '' })
+  const [emailForm, setEmailForm] = useState({ new_email: '', password: '' })
 
   useEffect(() => {
     const onPopState = () => setRoute(window.location.pathname)
@@ -150,6 +155,105 @@ function App() {
       setLoading(true)
       const data = await fetch(`${API_BASE}/auth/google/login`).then((r) => r.json())
       window.location.href = data.authorization_url
+    } catch (error) {
+      setStatus(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleEmailSignup(e) {
+    e.preventDefault()
+    if (signupForm.password !== signupForm.confirmPassword) {
+      setStatus('Passwords do not match')
+      return
+    }
+
+    try {
+      setLoading(true)
+      await apiFetch('/signup', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: signupForm.email,
+          password: signupForm.password,
+        }),
+      })
+      const loginResult = await apiFetch('/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: signupForm.email,
+          password: signupForm.password,
+        }),
+      })
+      localStorage.setItem('myportfolio_token', loginResult.access_token)
+      setToken(loginResult.access_token)
+      setStatus('Account created and logged in')
+      setRoute('/dashboard')
+      window.history.pushState({}, '', '/dashboard')
+      setSignupForm({ email: '', password: '', confirmPassword: '' })
+      await loadDashboardData()
+    } catch (error) {
+      setStatus(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleEmailLogin(e) {
+    e.preventDefault()
+    try {
+      setLoading(true)
+      const loginResult = await apiFetch('/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: loginForm.email,
+          password: loginForm.password,
+        }),
+      })
+      localStorage.setItem('myportfolio_token', loginResult.access_token)
+      setToken(loginResult.access_token)
+      setStatus('Logged in')
+      setRoute('/dashboard')
+      window.history.pushState({}, '', '/dashboard')
+      setLoginForm({ email: '', password: '' })
+      await loadDashboardData()
+    } catch (error) {
+      setStatus(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handlePasswordChange(e) {
+    e.preventDefault()
+    try {
+      setLoading(true)
+      await apiFetch('/change-password', {
+        method: 'POST',
+        body: JSON.stringify(passwordForm),
+      })
+      setStatus('Password updated')
+      setPasswordForm({ old_password: '', new_password: '' })
+    } catch (error) {
+      setStatus(error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleEmailChange(e) {
+    e.preventDefault()
+    try {
+      setLoading(true)
+      const result = await apiFetch('/change-email', {
+        method: 'PUT',
+        body: JSON.stringify(emailForm),
+      })
+      setStatus(result.message || 'Email updated')
+      setUser((prev) => ({ ...prev, email: result.new_email }))
+      localStorage.setItem('myportfolio_user', JSON.stringify({ ...authUser, email: result.new_email }))
+      setEmailForm({ new_email: '', password: '' })
+      await loadDashboardData()
     } catch (error) {
       setStatus(error.message)
     } finally {
@@ -300,9 +404,40 @@ function App() {
 
   if (!token) {
     return (
-      <div style={{ fontFamily: 'sans-serif', padding: 24 }}>
+      <div style={{ fontFamily: 'sans-serif', padding: 24, maxWidth: 960, margin: '0 auto' }}>
         <h1>MyPortfolio</h1>
-        <button onClick={handleGoogleLogin} disabled={loading}>Sign Up with Google</button>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20 }}>
+          <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <button type="button" onClick={() => setAuthTab('signup')} disabled={authTab === 'signup'}>Sign Up</button>
+              <button type="button" onClick={() => setAuthTab('login')} disabled={authTab === 'login'}>Log In</button>
+            </div>
+
+            {authTab === 'signup' ? (
+              <form onSubmit={handleEmailSignup}>
+                <h3>Sign Up with Email</h3>
+                <input type="email" value={signupForm.email} onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })} placeholder="Email" style={{ width: '100%', marginBottom: 8 }} /><br />
+                <input type="password" value={signupForm.password} onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })} placeholder="Password" style={{ width: '100%', marginBottom: 8 }} /><br />
+                <input type="password" value={signupForm.confirmPassword} onChange={(e) => setSignupForm({ ...signupForm, confirmPassword: e.target.value })} placeholder="Confirm password" style={{ width: '100%', marginBottom: 8 }} /><br />
+                <button type="submit" disabled={loading}>Sign Up</button>
+              </form>
+            ) : (
+              <form onSubmit={handleEmailLogin}>
+                <h3>Log In with Email</h3>
+                <input type="email" value={loginForm.email} onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })} placeholder="Email" style={{ width: '100%', marginBottom: 8 }} /><br />
+                <input type="password" value={loginForm.password} onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} placeholder="Password" style={{ width: '100%', marginBottom: 8 }} /><br />
+                <button type="submit" disabled={loading}>Log In</button>
+              </form>
+            )}
+          </div>
+
+          <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16 }}>
+            <h3>Continue with Google</h3>
+            <button onClick={handleGoogleLogin} disabled={loading}>Sign Up with Google</button>
+          </div>
+        </div>
+
         {status && <pre>{status}</pre>}
       </div>
     )
@@ -327,6 +462,13 @@ function App() {
       <div style={{ fontFamily: 'sans-serif', padding: 24 }}>
         <h1>Dashboard</h1>
         <p>Welcome {authUser?.display_name || authUser?.email}</p>
+        <pre>{JSON.stringify({
+          id: authUser?.id,
+          email: authUser?.email,
+          google_id: authUser?.google_id,
+          display_name: authUser?.display_name,
+          avatar_url: authUser?.avatar_url,
+        }, null, 2)}</pre>
         <ul>
           <li><button onClick={() => { setRoute('/dashboard/portfolio'); window.history.pushState({}, '', '/dashboard/portfolio') }}>Edit Portfolio</button></li>
           <li><button onClick={() => { setRoute('/dashboard/projects'); window.history.pushState({}, '', '/dashboard/projects') }}>Projects</button></li>
@@ -335,7 +477,26 @@ function App() {
           <li><button onClick={() => { setRoute('/dashboard/credits'); window.history.pushState({}, '', '/dashboard/credits') }}>Credits</button></li>
           <li><button onClick={handlePublicView}>Public View</button></li>
         </ul>
-        <button onClick={onDeleteAccount}>Delete Account</button>
+
+        <div style={{ border: '1px solid #ddd', borderRadius: 10, padding: 16, marginTop: 16 }}>
+          <h3>Account Settings</h3>
+
+          <form onSubmit={handlePasswordChange} style={{ marginBottom: 20 }}>
+            <h4>Change Password</h4>
+            <input type="password" value={passwordForm.old_password} onChange={(e) => setPasswordForm({ ...passwordForm, old_password: e.target.value })} placeholder="Old password" style={{ width: '100%', marginBottom: 8 }} /><br />
+            <input type="password" value={passwordForm.new_password} onChange={(e) => setPasswordForm({ ...passwordForm, new_password: e.target.value })} placeholder="New password" style={{ width: '100%', marginBottom: 8 }} /><br />
+            <button type="submit" disabled={loading}>Update Password</button>
+          </form>
+
+          <form onSubmit={handleEmailChange}>
+            <h4>Change Email</h4>
+            <input type="email" value={emailForm.new_email} onChange={(e) => setEmailForm({ ...emailForm, new_email: e.target.value })} placeholder="New email" style={{ width: '100%', marginBottom: 8 }} /><br />
+            <input type="password" value={emailForm.password} onChange={(e) => setEmailForm({ ...emailForm, password: e.target.value })} placeholder="Current password" style={{ width: '100%', marginBottom: 8 }} /><br />
+            <button type="submit" disabled={loading}>Update Email</button>
+          </form>
+        </div>
+
+        <button onClick={onDeleteAccount} style={{ marginTop: 20 }}>Delete Account</button>
         {status && <pre>{status}</pre>}
       </div>
     )
