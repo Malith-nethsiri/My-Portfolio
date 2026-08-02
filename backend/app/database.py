@@ -11,11 +11,13 @@ class Base(DeclarativeBase):
 
 
 engine = create_async_engine(settings.DATABASE_URL, echo=False, future=True)
-AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+AsyncSessionLocal = async_sessionmaker(
+    engine, expire_on_commit=False, class_=AsyncSession
+)
 
 
 async def init_db() -> None:
-    from app.models import user, portfolio, project, blog, money  # noqa: F401
+    #from app.models import user, portfolio, project, blog, money  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

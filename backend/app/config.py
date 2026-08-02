@@ -4,10 +4,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file='.env', extra='ignore')
 
-    DATABASE_URL: str = 'postgresql+asyncpg://postgres:postgres@localhost:5432/myportfolio'
+    # Now these will throw a clear setup error if your .env file goes missing
+    DATABASE_URL: str = "postgresql+asyncpg://portfolio:password@localhost:5432/portfolio"
     JWT_SECRET_KEY: str = 'change-me-in-production'
     JWT_ALGORITHM: str = 'HS256'
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     GOOGLE_CLIENT_ID: str = ''
     GOOGLE_CLIENT_SECRET: str = ''
     GOOGLE_REDIRECT_URI: str = 'http://localhost:8000/api/auth/google/callback'
