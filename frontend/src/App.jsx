@@ -43,11 +43,13 @@ function AppShell() {
   const HideNavbarpaths = ["/login", "/signup", "/auth/callback", "/"];
   const ShouldhideNavbar = HideNavbarpaths.includes(location.pathname);
 
+  const showFooterPaths = ["/", "/login", "/signup", "/auth/callback"];
+  const shouldHideFooter = !showFooterPaths.includes(location.pathname);
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       {!ShouldhideNavbar && <Navbar />}
       <main
-        className={`min-h-[calc(100vh-140px)] ${ShouldhideNavbar ? "" : "pt-16"}`}
+        className={`min-h-[calc(100vh-140px)] ${ShouldhideNavbar ? "" : "pt-16"} ${shouldHideFooter ? "" : "pb-16"}`}
       >
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -68,7 +70,7 @@ function AppShell() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
-      <Footer />
+      {!shouldHideFooter && <Footer />}
       <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
     </div>
   );

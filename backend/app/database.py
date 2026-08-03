@@ -10,6 +10,7 @@ class Base(DeclarativeBase):
     pass
 
 
+# Ensure your settings.DATABASE_URL starts with 'postgresql+asyncpg://'
 engine = create_async_engine(settings.DATABASE_URL, echo=False, future=True)
 AsyncSessionLocal = async_sessionmaker(
     engine, expire_on_commit=False, class_=AsyncSession
@@ -17,10 +18,11 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 async def init_db() -> None:
-    #from app.models import user, portfolio, project, blog, money  # noqa: F401
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    """
+    Deprecated: Database initialization is now managed by Alembic.
+    Run 'alembic upgrade head' in your terminal to apply schema updates.
+    """
+    pass
 
 
 async def get_db():

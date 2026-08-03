@@ -17,10 +17,11 @@ class MoneyEntry(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey('users.id'), nullable=False)
     type: Mapped[str] = mapped_column(String, nullable=False)
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
-    category: Mapped[str] = mapped_column(String, nullable=False)
+    category: Mapped[str | None] = mapped_column(String, nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     counterparty: Mapped[str | None] = mapped_column(String, nullable=True)
     credit_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    direction: Mapped[str | None] = mapped_column(String, nullable=True)
     date: Mapped[date] = mapped_column(Date, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
 

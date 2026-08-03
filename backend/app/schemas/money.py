@@ -8,10 +8,11 @@ from pydantic import BaseModel, Field
 class MoneyEntryCreate(BaseModel):
     type: str
     amount: Decimal
-    category: str
+    category: str | None = None
     note: str | None = None
     counterparty: str | None = None
     credit_status: str | None = None
+    direction: str | None = None
     date: str
 
 
@@ -22,6 +23,7 @@ class MoneyEntryUpdate(BaseModel):
     note: str | None = None
     counterparty: str | None = None
     credit_status: str | None = None
+    direction: str | None = None
     date: str | None = None
 
 
@@ -29,10 +31,11 @@ class MoneyEntryOut(BaseModel):
     id: str
     type: str
     amount: Decimal
-    category: str
+    category: str | None = None
     note: str | None = None
     counterparty: str | None = None
     credit_status: str | None = None
+    direction: str | None = None
     date: str
 
     class Config:

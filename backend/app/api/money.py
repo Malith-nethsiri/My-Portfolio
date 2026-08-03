@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, select
+from sqlalchemy import and_, select, func, extract
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -26,6 +26,17 @@ async def create_money_entry(
     if payload.amount is None:
         raise HTTPException(status_code=400, detail='Amount is required')
 
+    if payload.type == 'CREDIT':
+        if payload.direction not in {'i_owe', 'they_owe'}:
+            raise HTTPException(status_code=400, detail='direction must be "i_owe" or "they_owe" for CREDIT')
+        if not payload.counterparty:
+            raise HTTPException(status_code=400, detail='counterparty is required for CREDIT')
+        if not payload.credit_status:
+            payload.credit_status = 'active'
+    elif payload.type in {'INCOME', 'EXPENSE'}:
+        if not payload.category:
+            raise HTTPException(status_code=400, detail='category is required for INCOME and EXPENSE')
+
     money_entry = MoneyEntry(
         user_id=user.id,
         type=payload.type,
@@ -34,6 +45,7 @@ async def create_money_entry(
         note=payload.note,
         counterparty=payload.counterparty,
         credit_status=payload.credit_status,
+        direction=payload.direction,
         date=date.fromisoformat(payload.date),
     )
     session.add(money_entry)
@@ -73,6 +85,7 @@ async def list_money_entries(
             'note': entry.note,
             'counterparty': entry.counterparty,
             'credit_status': entry.credit_status,
+            'direction': entry.direction,
             'date': entry.date.isoformat(),
             'created_at': entry.created_at.isoformat(),
         }
@@ -104,6 +117,8 @@ async def update_money_entry(
         entry.counterparty = payload.counterparty
     if payload.credit_status is not None:
         entry.credit_status = payload.credit_status
+    if payload.direction is not None:
+        entry.direction = payload.direction
     if payload.date is not None:
         entry.date = date.fromisoformat(payload.date)
 
@@ -143,6 +158,7 @@ async def list_credit_entries(user: User = Depends(get_current_user), session: A
             'note': entry.note,
             'counterparty': entry.counterparty,
             'credit_status': entry.credit_status,
+            'direction': entry.direction,
             'date': entry.date.isoformat(),
         }
         for entry in entries
@@ -162,3 +178,41 @@ async def mark_credit_paid(
     entry.credit_status = 'paid'
     await session.commit()
     return {'success': True, 'id': str(entry.id), 'credit_status': entry.credit_status}
+
+@router.get('/money/summary')
+async def get_money_summary(
+    year: int = Query(...),
+    month: int | None = Query(None),
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    query = select(
+        extract('month', MoneyEntry.date).label('month'),
+        func.sum(func.case((MoneyEntry.type == 'INCOME', MoneyEntry.amount), else_=0)).label('total_income'),
+        func.sum(func.case((MoneyEntry.type == 'EXPENSE', MoneyEntry.amount), else_=0)).label('total_expense')
+    ).where(
+        MoneyEntry.user_id == user.id,
+        MoneyEntry.type.in_(['INCOME', 'EXPENSE']),
+        extract('year', MoneyEntry.date) == year
+    ).group_by(extract('month', MoneyEntry.date))
+    
+    if month is not None:
+        query = query.where(extract('month', MoneyEntry.date) == month)
+        
+    result = await session.execute(query)
+    rows = result.all()
+    
+    if month is not None:
+        if not rows:
+            return {'total_income': 0.0, 'total_expense': 0.0}
+        row = rows[0]
+        return {'total_income': float(row.total_income or 0.0), 'total_expense': float(row.total_expense or 0.0)}
+        
+    summary = [{'month': m, 'total_income': 0.0, 'total_expense': 0.0} for m in range(1, 13)]
+    for row in rows:
+        m_idx = int(row.month) - 1
+        if 0 <= m_idx < 12:
+            summary[m_idx]['total_income'] = float(row.total_income or 0.0)
+            summary[m_idx]['total_expense'] = float(row.total_expense or 0.0)
+            
+    return summary
