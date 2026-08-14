@@ -18,7 +18,6 @@ class User(Base):
     __tablename__ = 'users'
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    google_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     display_name: Mapped[str] = mapped_column(String, nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)

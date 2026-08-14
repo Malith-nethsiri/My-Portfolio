@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 @router.get('/portfolio/{username}')
-async def public_portfolio(username: str):
+async def public_portfolio(username: str) :
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(User).where(User.email == username))
         user = result.scalar_one_or_none()

@@ -9,9 +9,6 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = 'change-me-in-production'
     JWT_ALGORITHM: str = 'HS256'
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
-    GOOGLE_CLIENT_ID: str = ''
-    GOOGLE_CLIENT_SECRET: str = ''
-    GOOGLE_REDIRECT_URI: str = 'http://localhost:8000/api/auth/google/callback'
     FRONTEND_URL: str = 'http://localhost:5173'
     APP_NAME: str = 'MyPortfolio'
 

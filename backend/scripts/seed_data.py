@@ -16,7 +16,7 @@ async def create_seed_data():
             return
 
         user = User(
-            google_id='seed-google-id',
+
             email='demo@example.com',
             display_name='Demo User',
             avatar_url='https://example.com/avatar.png',
