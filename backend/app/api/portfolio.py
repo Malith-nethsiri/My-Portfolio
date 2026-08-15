@@ -45,7 +45,7 @@ async def get_or_create_portfolio(session: AsyncSession, user: User) -> Portfoli
 
 
 @router.get('/portfolio')
-async def get_my_portfolio(user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db)):
+async def get_my_portfolio(user: User = Depends(get_current_user), session: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     portfolio = await get_or_create_portfolio(session, user)
     sections = sorted(portfolio.sections, key=lambda item: item.order_index)
     return {
