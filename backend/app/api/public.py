@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import AsyncSessionLocal
@@ -10,32 +10,53 @@ from app.models import BlogPost, Image, Portfolio, Project, User
 router = APIRouter()
 
 
-@router.get('/portfolio/{username}')
-async def public_portfolio(username: str) :
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(select(User).where(User.email == username))
-        user = result.scalar_one_or_none()
-        if user is None:
-            result = await session.execute(select(User).where(User.display_name == username))
-            user = result.scalar_one_or_none()
-        if user is None:
-            raise HTTPException(status_code=404, detail='User not found')
+async def get_user_by_username(session: AsyncSession, username: str) -> User:
+    """Look up user by exact username, email prefix, or display_name."""
+    # Check exact email, display_name, or email prefix (e.g., 'malith' from 'malith@gmail.com')
+    stmt = select(User).where(
+        or_(
+            User.email == username,
+            User.display_name == username,
+            User.email.startswith(f"{username}@")
+        )
+    )
+    result = await session.execute(stmt)
+    user = result.scalar_one_or_none()
 
-        portfolio_result = await session.execute(select(Portfolio).where(Portfolio.user_id == user.id))
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
+
+
+@router.get('/portfolio/{username}')
+async def public_portfolio(username: str):
+    async with AsyncSessionLocal() as session:
+        user = await get_user_by_username(session, username)
+
+        portfolio_result = await session.execute(
+            select(Portfolio).where(Portfolio.user_id == user.id)
+        )
         portfolio = portfolio_result.scalar_one_or_none()
         if portfolio is None:
-            raise HTTPException(status_code=404, detail='Portfolio not found')
+            raise HTTPException(status_code=404, detail="Portfolio not found")
 
+        # Fetch gallery images
         gallery = await session.execute(
             select(Image)
-            .where(Image.user_id == user.id, Image.entity_type == 'portfolio_gallery')
+            .where(Image.user_id == user.id, Image.entity_type == "portfolio_gallery")
             .order_by(Image.order_index.asc())
         )
         gallery_images = [
-            {'id': str(img.id), 'url': img.url, 'alt_text': img.alt_text, 'order_index': img.order_index}
+            {
+                "id": str(img.id),
+                "url": img.url,
+                "alt_text": img.alt_text,
+                "order_index": img.order_index,
+            }
             for img in gallery.scalars().all()
         ]
 
+        # Fetch featured projects
         project_result = await session.execute(
             select(Project)
             .where(Project.user_id == user.id, Project.is_featured.is_(True))
@@ -43,40 +64,43 @@ async def public_portfolio(username: str) :
         )
         featured_projects = [
             {
-                'id': str(project.id),
-                'title': project.title,
-                'description': project.description,
-                'github_url': project.github_url,
-                'deployed_url': project.deployed_url,
-                'tech_stack': project.tech_stack,
-                'cover_image_id': str(project.cover_image_id) if project.cover_image_id else None,
+                "id": str(project.id),
+                "title": project.title,
+                "description": project.description,
+                "github_url": project.github_url,
+                "deployed_url": project.deployed_url,
+                "tech_stack": project.tech_stack,
+                "cover_image_id": str(project.cover_image_id) if project.cover_image_id else None,
             }
             for project in project_result.scalars().all()
         ]
 
-        sections_result = await session.execute(
-            select(Image).where(Image.user_id == user.id, Image.entity_type == 'portfolio_gallery')
-        )
+        # Safely parse portfolio sections (handling None/empty case)
+        raw_sections = portfolio.sections or []
         sections = [
-            {'section_type': section.section_type, 'visible': section.visible, 'order_index': section.order_index}
-            for section in portfolio.sections
+            {
+                "section_type": sec.get("section_type") if isinstance(sec, dict) else getattr(sec, "section_type", None),
+                "visible": sec.get("visible", True) if isinstance(sec, dict) else getattr(sec, "visible", True),
+                "order_index": sec.get("order_index", 0) if isinstance(sec, dict) else getattr(sec, "order_index", 0),
+            }
+            for sec in raw_sections
         ]
 
         return {
-            'user': {
-                'id': str(user.id),
-                'display_name': user.display_name,
-                'email': user.email,
-                'avatar_url': user.avatar_url,
+            "user": {
+                "id": str(user.id),
+                "display_name": user.display_name,
+                "email": user.email,
+                "avatar_url": user.avatar_url,
             },
-            'bio': portfolio.bio,
-            'skills': portfolio.skills,
-            'design_settings': portfolio.design_settings,
-            'social_links': portfolio.social_links,
-            'sections': sections,
-            'gallery': gallery_images,
-            'featured_projects': featured_projects,
-            'contact': {'email': user.email},
+            "bio": portfolio.bio,
+            "skills": portfolio.skills,
+            "design_settings": portfolio.design_settings or {},
+            "social_links": portfolio.social_links or {},
+            "sections": sections,
+            "gallery": gallery_images,
+            "featured_projects": featured_projects,
+            "contact": {"email": user.email},
         }
 
 
@@ -91,14 +115,14 @@ async def public_projects(username: str):
         )
         return [
             {
-                'id': str(project.id),
-                'title': project.title,
-                'description': project.description,
-                'github_url': project.github_url,
-                'deployed_url': project.deployed_url,
-                'tech_stack': project.tech_stack,
-                'is_featured': project.is_featured,
-                'cover_image_id': str(project.cover_image_id) if project.cover_image_id else None,
+                "id": str(project.id),
+                "title": project.title,
+                "description": project.description,
+                "github_url": project.github_url,
+                "deployed_url": project.deployed_url,
+                "tech_stack": project.tech_stack,
+                "is_featured": project.is_featured,
+                "cover_image_id": str(project.cover_image_id) if project.cover_image_id else None,
             }
             for project in result.scalars().all()
         ]
@@ -110,17 +134,17 @@ async def public_blog(username: str):
         user = await get_user_by_username(session, username)
         result = await session.execute(
             select(BlogPost)
-            .where(BlogPost.user_id == user.id, BlogPost.visibility == 'public')
+            .where(BlogPost.user_id == user.id, BlogPost.visibility == "public")
             .order_by(BlogPost.created_at.desc())
         )
         posts = result.scalars().all()
         return [
             {
-                'id': str(post.id),
-                'title': post.title,
-                'content': post.content,
-                'created_at': post.created_at.isoformat(),
-                'images': await get_images_for_post(session, post.id),
+                "id": str(post.id),
+                "title": post.title,
+                "content": post.content,
+                "created_at": post.created_at.isoformat(),
+                "images": await get_images_for_post(session, post.id),
             }
             for post in posts
         ]
@@ -130,35 +154,37 @@ async def public_blog(username: str):
 async def public_blog_post(username: str, post_id: str):
     async with AsyncSessionLocal() as session:
         user = await get_user_by_username(session, username)
-        result = await session.execute(select(BlogPost).where(BlogPost.id == post_id, BlogPost.user_id == user.id, BlogPost.visibility == 'public'))
+        result = await session.execute(
+            select(BlogPost).where(
+                BlogPost.id == post_id,
+                BlogPost.user_id == user.id,
+                BlogPost.visibility == "public",
+            )
+        )
         post = result.scalar_one_or_none()
         if post is None:
-            raise HTTPException(status_code=404, detail='Blog post not found')
+            raise HTTPException(status_code=404, detail="Blog post not found")
         return {
-            'id': str(post.id),
-            'title': post.title,
-            'content': post.content,
-            'created_at': post.created_at.isoformat(),
-            'images': await get_images_for_post(session, post.id),
+            "id": str(post.id),
+            "title": post.title,
+            "content": post.content,
+            "created_at": post.created_at.isoformat(),
+            "images": await get_images_for_post(session, post.id),
         }
 
 
-async def get_user_by_username(session: AsyncSession, username: str):
-    result = await session.execute(select(User).where(User.email == username))
-    user = result.scalar_one_or_none()
-    if user is None:
-        result = await session.execute(select(User).where(User.display_name == username))
-        user = result.scalar_one_or_none()
-    if user is None:
-        raise HTTPException(status_code=404, detail='User not found')
-    return user
-
-
 async def get_images_for_post(session: AsyncSession, post_id):
-    result = await session.execute(select(Image).where(Image.entity_type == 'blog_post', Image.entity_id == post_id).order_by(Image.order_index.asc()))
-    return [{
-        'id': str(image.id),
-        'url': image.url,
-        'alt_text': image.alt_text,
-        'order_index': image.order_index,
-    } for image in result.scalars().all()]
+    result = await session.execute(
+        select(Image)
+        .where(Image.entity_type == "blog_post", Image.entity_id == post_id)
+        .order_by(Image.order_index.asc())
+    )
+    return [
+        {
+            "id": str(image.id),
+            "url": image.url,
+            "alt_text": image.alt_text,
+            "order_index": image.order_index,
+        }
+        for image in result.scalars().all()
+    ]
