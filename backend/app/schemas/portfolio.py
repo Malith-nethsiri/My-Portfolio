@@ -10,6 +10,7 @@ class PortfolioUpdate(BaseModel):
     skills: str | None = None
     design_settings: dict[str, Any] | None = None
     social_links: dict[str, Any] | None = None
+    role: str | None = None
 
 
 class SectionUpdate(BaseModel):

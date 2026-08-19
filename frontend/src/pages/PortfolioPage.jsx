@@ -127,6 +127,7 @@ function PortfolioPage() {
         method: "PUT",
         body: JSON.stringify({
           bio: portfolio.bio,
+          role: portfolio.role,
           skills: portfolio.skills,
           design_settings: pendingDesign || portfolio.design_settings,
           social_links: portfolio.social_links,
@@ -255,8 +256,17 @@ function PortfolioPage() {
                 <div className="relative grid items-center gap-8 md:grid-cols-[1.2fr_0.8fr]">
                   <div>
                     <p className="mb-4 text-sm font-semibold uppercase tracking-[0.24em] text-primary-600">
-                      Available for freelance work
+                      {portfolio.role || "developer"}
                     </p>
+                    {isOwner && editing && (
+                      <button
+                        type="button"
+                        className="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                        onClick={() => setEditorState("role")}
+                      >
+                        <Pencil className="h-4 w-4" /> Edit role
+                      </button>
+                    )}
                     <h1 className="max-w-xl font-display text-5xl font-black tracking-tight text-slate-950 sm:text-6xl">
                       {portfolio.user?.display_name || username}
                     </h1>

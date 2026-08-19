@@ -74,7 +74,7 @@ async def update_portfolio(
     payload: PortfolioUpdate,
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
-):
+)-> dict[str, Any]:
     portfolio = await get_or_create_portfolio(session, user)
     if payload.bio is not None:
         portfolio.bio = payload.bio
@@ -84,6 +84,8 @@ async def update_portfolio(
         portfolio.design_settings = payload.design_settings
     if payload.social_links is not None:
         portfolio.social_links = payload.social_links
+    if payload.role is not None:
+        portfolio.role = payload.role
 
     await session.commit()
     await session.refresh(portfolio)
