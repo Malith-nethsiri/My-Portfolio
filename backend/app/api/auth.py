@@ -8,16 +8,19 @@ from app.database import get_db
 from app.models import User
 from app.schemas.user import AccountDeleteResponse, AuthTokenResponse, EmailChangeRequest, PasswordChangeRequest, UserCreate, UserLogin
 from app.utils.security import create_access_token, get_current_user, get_password_hash, verify_password
+from app.api.portfolio import get_or_create_portfolio
 
 router = APIRouter()
 
 
 @router.post('/signup', status_code=status.HTTP_201_CREATED)
 async def signup(payload: UserCreate, session: AsyncSession = Depends(get_db)):
+    # 1. Check if user exists
     existing_user = await session.scalar(select(User).where(User.email == payload.email))
     if existing_user is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='Email already registered')
 
+    # 2. Create the User
     user = User(
         email=payload.email,
         display_name=payload.email.split('@')[0],
@@ -27,8 +30,13 @@ async def signup(payload: UserCreate, session: AsyncSession = Depends(get_db)):
     )
     session.add(user)
     await session.commit()
-    return {'message': 'Account created'}
+    await session.refresh(user)  # Ensure user.id is available
 
+    # _ means a throw away variable, we don't need the portfolio object here, just ensuring it's created.
+    _ = await get_or_create_portfolio(session, user)
+
+    # The portfolio is now created and saved in the database.
+    return {'message': 'Account created'}
 
 @router.post('/login', response_model=AuthTokenResponse)
 async def login(payload: UserLogin, session: AsyncSession = Depends(get_db)):
